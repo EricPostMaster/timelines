@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Layout from '../components/Layout';
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase-config";
-
+import { AuthContext } from '../context/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const CreateEntry = () => {
+  const { user } = useContext(AuthContext);
+
+  if (!user) {
+    return <Navigate to="/" />;
+  }
+
   const [entryText, setEntryText] = useState('');
   const [audioRecording, setAudioRecording] = useState(null);
 
   const handleRecordAudio = () => {
-    // Placeholder for recording audio
     alert('Audio recording functionality coming soon!');
   };
 
@@ -17,9 +23,30 @@ const CreateEntry = () => {
     setEntryText(event.target.value);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    alert('Entry submitted!');
+
+    if (!entryText.trim()) {
+      alert('Please enter some text!');
+      return;
+    }
+
+    try {
+      // Save the journal entry to Firestore
+      const docRef = await addDoc(collection(db, "journalEntries"), {
+        text: entryText,
+        createdAt: new Date(), // Add a timestamp
+        audioRecording, // Placeholder for audio recordings
+      });
+      console.log('Document written with ID:', docRef.id);
+
+      // Clear the input fields after submission
+      setEntryText('');
+      alert('Entry submitted successfully!');
+    } catch (error) {
+      console.error('Error adding document:', error);
+      alert('Failed to submit entry. Please try again.');
+    }
   };
 
   return (
