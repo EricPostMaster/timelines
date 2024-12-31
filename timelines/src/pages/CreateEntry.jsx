@@ -37,6 +37,7 @@ const CreateEntry = () => {
         text: entryText,
         createdAt: new Date(), // Add a timestamp
         audioRecording, // Placeholder for audio recordings
+        userId: user.uid, // Store the user ID
       });
       console.log('Document written with ID:', docRef.id);
 
