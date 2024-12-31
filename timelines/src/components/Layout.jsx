@@ -3,15 +3,15 @@ import { Link } from 'react-router-dom';
 
 const Layout = ({ children }) => {
   return (
-    <div>
-      <header style={styles.header}>
-        <nav style={styles.nav}>
-          <Link to="/home" style={styles.link}>Home</Link>
-          <Link to="/create-entry" style={styles.link}>Create Entry</Link>
-        </nav>
-      </header>
+    // <div>
+    //   <header style={styles.header}>
+    //     <nav style={styles.nav}>
+    //       <Link to="/home" style={styles.link}>Home</Link>
+    //       <Link to="/create-entry" style={styles.link}>Create Entry</Link>
+    //     </nav>
+    //   </header>
       <main>{children}</main>
-    </div>
+    // </div>
   );
 };
 
