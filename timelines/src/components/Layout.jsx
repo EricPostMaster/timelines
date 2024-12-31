@@ -6,7 +6,7 @@ const Layout = ({ children }) => {
     <div>
       <header style={styles.header}>
         <nav style={styles.nav}>
-          <Link to="/" style={styles.link}>Home</Link>
+          <Link to="/home" style={styles.link}>Home</Link>
           <Link to="/create-entry" style={styles.link}>Create Entry</Link>
         </nav>
       </header>
