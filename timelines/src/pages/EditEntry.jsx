@@ -1,29 +1,40 @@
-import React, { useState, useContext } from 'react';
-import Layout from '../components/Layout';
-import { collection, addDoc } from "firebase/firestore";
-import { db, storage } from "../firebase-config";
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, storage } from '../firebase-config';
 import { AuthContext } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import Layout from '../components/Layout';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-const CreateEntry = () => {
+const EditEntry = () => {
+  const { id } = useParams();
   const { user } = useContext(AuthContext);
-
-  if (!user) {
-    return <Navigate to="/" />;
-  }
-
   const [subject, setSubject] = useState('');
   const [entryText, setEntryText] = useState('');
   const [tags, setTags] = useState('');
   const [image, setImage] = useState(null);
-  const [audioRecording, setAudioRecording] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const navigate = useNavigate();
 
-  const handleRecordAudio = () => {
-    alert('Audio recording functionality coming soon!');
-  };
+  useEffect(() => {
+    const fetchEntry = async () => {
+      const docRef = doc(db, 'journalEntries', id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists() && docSnap.data().userId === user.uid) {
+        setSubject(docSnap.data().subject || '');
+        setEntryText(docSnap.data().text);
+        setTags(docSnap.data().tags.join(', ')); // Join tags array into a comma-separated string
+        setExistingImageUrl(docSnap.data().imageUrl || '');
+      } else {
+        navigate('/home');
+      }
+    };
+
+    fetchEntry();
+  }, [id, user, navigate]);
 
   const handleSubjectChange = (event) => {
     setSubject(event.target.value);
@@ -51,7 +62,7 @@ const CreateEntry = () => {
       return;
     }
 
-    let imageUrl = '';
+    let imageUrl = existingImageUrl;
     if (image) {
       const imageRef = ref(storage, `images/${image.name}`);
       await uploadBytes(imageRef, image);
@@ -59,34 +70,26 @@ const CreateEntry = () => {
     }
 
     try {
-      // Save the journal entry to Firestore
-      const docRef = await addDoc(collection(db, "journalEntries"), {
+      const docRef = doc(db, 'journalEntries', id);
+      await updateDoc(docRef, {
         subject,
         text: entryText,
         tags: tags.split(',').map(tag => tag.trim()), // Split tags by comma and trim whitespace
-        createdAt: new Date(), // Add a timestamp
-        audioRecording, // Placeholder for audio recordings
         imageUrl, // Store the image URL
-        userId: user.uid, // Store the user ID
+        updatedAt: new Date(),
       });
-      console.log('Document written with ID:', docRef.id);
-
-      // Clear the input fields after submission
-      setSubject('');
-      setEntryText('');
-      setTags('');
-      setImage(null);
-      alert('Entry submitted successfully!');
+      alert('Entry updated successfully!');
+      navigate(`/view-entry/${id}`);
     } catch (error) {
-      console.error('Error adding document:', error);
-      alert('Failed to submit entry. Please try again.');
+      console.error('Error updating document:', error);
+      alert('Failed to update entry. Please try again.');
     }
   };
 
   return (
     <Layout>
       <div>
-        <h1>Create New Journal Entry</h1>
+        <h1>Edit Journal Entry</h1>
         <form onSubmit={handleSubmit}>
           <div>
             <label htmlFor="subject">Subject:</label>
@@ -99,11 +102,11 @@ const CreateEntry = () => {
             />
           </div>
           <div>
-            <label htmlFor="entryText">Write your entry:</label>
+            <label htmlFor="entryText">Edit your entry:</label>
             <ReactQuill
               value={entryText}
               onChange={handleTextChange}
-              placeholder="Type your journal entry here..."
+              placeholder="Edit your journal entry here..."
               theme="snow"
             />
           </div>
@@ -126,11 +129,13 @@ const CreateEntry = () => {
               onChange={handleImageChange}
             />
           </div>
+          {existingImageUrl && (
+            <div>
+              <img src={existingImageUrl} alt="Attached" style={{ maxWidth: '100%' }} />
+            </div>
+          )}
           <div>
-            <button type="button" onClick={handleRecordAudio}>Record Audio</button>
-          </div>
-          <div>
-            <button type="submit">Submit Entry</button>
+            <button type="submit">Update Entry</button>
           </div>
         </form>
       </div>
@@ -138,4 +143,4 @@ const CreateEntry = () => {
   );
 };
 
-export default CreateEntry;
+export default EditEntry;
