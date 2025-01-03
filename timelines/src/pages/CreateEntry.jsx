@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import Layout from '../components/Layout';
 import { collection, addDoc } from "firebase/firestore";
 import { db, storage } from "../firebase-config";
@@ -19,11 +19,7 @@ const CreateEntry = () => {
   const [entryText, setEntryText] = useState('');
   const [tags, setTags] = useState('');
   const [image, setImage] = useState(null);
-  const [audioRecording, setAudioRecording] = useState(null);
-
-  const handleRecordAudio = () => {
-    alert('Audio recording functionality coming soon!');
-  };
+  const quillRef = useRef(null);
 
   const handleSubjectChange = (event) => {
     setSubject(event.target.value);
@@ -65,7 +61,6 @@ const CreateEntry = () => {
         text: entryText,
         tags: tags.split(',').map(tag => tag.trim()), // Split tags by comma and trim whitespace
         createdAt: new Date(), // Add a timestamp
-        audioRecording, // Placeholder for audio recordings
         imageUrl, // Store the image URL
         userId: user.uid, // Store the user ID
       });
@@ -81,6 +76,10 @@ const CreateEntry = () => {
       console.error('Error adding document:', error);
       alert('Failed to submit entry. Please try again.');
     }
+  };
+
+  const handleRecordAudio = () => {
+    alert('Audio submissions coming soon!');
   };
 
   return (
@@ -101,6 +100,7 @@ const CreateEntry = () => {
           <div>
             <label htmlFor="entryText">Write your entry:</label>
             <ReactQuill
+              ref={quillRef}
               value={entryText}
               onChange={handleTextChange}
               placeholder="Type your journal entry here..."
@@ -127,7 +127,9 @@ const CreateEntry = () => {
             />
           </div>
           <div>
-            <button type="button" onClick={handleRecordAudio}>Record Audio</button>
+            <button type="button" onClick={handleRecordAudio}>
+              Record Audio
+            </button>
           </div>
           <div>
             <button type="submit">Submit Entry</button>
@@ -139,3 +141,4 @@ const CreateEntry = () => {
 };
 
 export default CreateEntry;
+
