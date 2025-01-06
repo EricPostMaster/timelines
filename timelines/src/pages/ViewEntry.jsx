@@ -78,6 +78,10 @@ const ViewEntry = () => {
     }
   };
 
+  const handleImageClick = (imageUrl) => {
+    window.open(imageUrl, '_blank');
+  };
+
   if (!entry) {
     return <p>Loading...</p>;
   }
@@ -88,15 +92,21 @@ const ViewEntry = () => {
         <h1>View Journal Entry</h1>
         <h3>{entry.createdAt?.toDate().toLocaleString()}</h3>
         <h4>{entry.subject}</h4>
-        <p>{entry.text}</p>
+        <div dangerouslySetInnerHTML={{ __html: entry.text }} />
         {entry.tags && (
           <p>Tags: {entry.tags.join(', ')}</p>
         )}
-        {entry.imageUrl && (
-          <img src={entry.imageUrl} alt="Attached" style={{ maxWidth: '100%' }} />
-        )}
-        {entry.audioRecording && (
-          <audio controls src={entry.audioRecording} />
+        {entry.imageUrls && entry.imageUrls.map((imageUrl, index) => (
+          <img
+            key={index}
+            className="entry-image"
+            src={imageUrl}
+            alt={`Attached ${index}`}
+            onClick={() => handleImageClick(imageUrl)}
+          />
+        ))}
+        {entry.audioUrl && (
+          <audio controls src={entry.audioUrl} />
         )}
         <Link to={`/edit-entry/${id}`}>Edit</Link>
         <button onClick={handleDelete}>Delete</button>

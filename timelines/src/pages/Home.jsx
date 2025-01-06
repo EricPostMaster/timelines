@@ -86,6 +86,17 @@ const Home = () => {
     setSearchQuery(event.target.value);
   };
 
+  const truncateText = (text, length) => {
+    if (text.length <= length) {
+      return text;
+    }
+    return text.substring(0, length) + '...';
+  };
+
+  const handleImageClick = (imageUrl) => {
+    window.open(imageUrl, '_blank');
+  };
+
   return (
     <Layout>
       <div>
@@ -126,12 +137,21 @@ const Home = () => {
               <li key={entry.id}>
                 <h3>{entry.createdAt?.toDate().toLocaleString()}</h3>
                 <h4>{entry.subject}</h4>
-                <div dangerouslySetInnerHTML={{ __html: entry.text }} />
+                <div dangerouslySetInnerHTML={{ __html: truncateText(entry.text, 250) }} />
                 {entry.tags && (
                   <p>Tags: {entry.tags.join(', ')}</p>
                 )}
-                {entry.imageUrl && (
-                  <img src={entry.imageUrl} alt="Attached" style={{ maxWidth: '100%' }} />
+                {entry.imageUrls && entry.imageUrls.map((imageUrl, index) => (
+                  <img
+                    key={index}
+                    className="entry-image"
+                    src={imageUrl}
+                    alt={`Attached ${index}`}
+                    onClick={() => handleImageClick(imageUrl)}
+                  />
+                ))}
+                {entry.audioUrl && (
+                  <audio controls src={entry.audioUrl} />
                 )}
                 <Link to={`/view-entry/${entry.id}`}>View</Link>
               </li>

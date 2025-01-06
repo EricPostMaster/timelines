@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef, useEffect } from 'react';
+import React, { useState, useContext, useRef, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { collection, addDoc } from "firebase/firestore";
 import { db, storage } from "../firebase-config";
@@ -8,6 +8,41 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '../CreateEntry.css'; // Import the CSS file
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
+const ItemType = {
+  IMAGE: 'image',
+};
+
+const ImageItem = ({ image, index, moveImage }) => {
+  const ref = useRef(null);
+  const [, drop] = useDrop({
+    accept: ItemType.IMAGE,
+    hover(item) {
+      if (item.index !== index) {
+        moveImage(item.index, index);
+        item.index = index;
+      }
+    },
+  });
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemType.IMAGE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <div ref={ref} style={{ opacity: isDragging ? 0.5 : 1 }}>
+      <img className="entry-image" src={URL.createObjectURL(image)} alt="Attached" />
+    </div>
+  );
+};
 
 const CreateEntry = () => {
   const { user } = useContext(AuthContext);
@@ -20,42 +55,84 @@ const CreateEntry = () => {
   const [subject, setSubject] = useState('');
   const [entryText, setEntryText] = useState('');
   const [tags, setTags] = useState('');
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [audioRecording, setAudioRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const [audioStream, setAudioStream] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        setEntryText((prevText) => prevText + finalTranscript);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error', event);
+      };
+    } else {
+      console.warn('Speech recognition not supported in this browser');
+    }
+  }, []);
+
+  const startListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    setAudioStream(stream);
-    mediaRecorderRef.current = new MediaRecorder(stream);
-    mediaRecorderRef.current.ondataavailable = (event) => {
-      audioChunksRef.current.push(event.data);
-    };
-    mediaRecorderRef.current.onstop = () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-      setAudioRecording(audioBlob);
-      audioChunksRef.current = [];
-    };
-    mediaRecorderRef.current.start();
-    setIsRecording(true);
-  };
-
-  const stopRecording = () => {
-    mediaRecorderRef.current.stop();
-    audioStream.getTracks().forEach(track => track.stop());
-    setIsRecording(false);
-    setRecordingComplete(true);
-  };
-
-  const playRecording = () => {
-    if (audioRecording) {
-      const audioUrl = URL.createObjectURL(audioRecording);
-      const audio = new Audio(audioUrl);
-      audio.play();
+    if (isRecording) {
+      mediaRecorderRef.current.stop();
+      audioStream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      setRecordingComplete(true);
+      stopListening();
+    } else {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setAudioStream(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        setAudioRecording(audioBlob);
+        audioChunksRef.current = [];
+      };
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingComplete(false);
+      startListening();
     }
   };
 
@@ -72,31 +149,49 @@ const CreateEntry = () => {
   };
 
   const handleImageChange = (event) => {
-    if (event.target.files[0]) {
-      setImage(event.target.files[0]);
+    if (event.target.files) {
+      setImages([...images, ...Array.from(event.target.files)]);
     }
   };
+
+  const moveImage = useCallback((dragIndex, hoverIndex) => {
+    const dragImage = images[dragIndex];
+    const updatedImages = [...images];
+    updatedImages.splice(dragIndex, 1);
+    updatedImages.splice(hoverIndex, 0, dragImage);
+    setImages(updatedImages);
+  }, [images]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!entryText.trim()) {
-      alert('Please enter some text!');
-      return;a
+      alert('Please enter some text');
+      return;
     }
 
-    let imageUrl = '';
-    if (image) {
+    const imageUrls = [];
+    for (const image of images) {
       const imageRef = ref(storage, `images/${image.name}`);
-      await uploadBytes(imageRef, image);
-      imageUrl = await getDownloadURL(imageRef);
+      const metadata = {
+        customMetadata: {
+          userId: user.uid
+        }
+      };
+      await uploadBytes(imageRef, image, metadata);
+      const imageUrl = await getDownloadURL(imageRef);
+      imageUrls.push(imageUrl);
     }
 
     let audioUrl = '';
     if (audioRecording) {
-      const audioBlob = await fetch(audioRecording).then(res => res.blob());
       const audioRef = ref(storage, `audios/${Date.now()}.wav`);
-      await uploadBytes(audioRef, audioBlob);
+      const metadata = {
+        customMetadata: {
+          userId: user.uid
+        }
+      };
+      await uploadBytes(audioRef, audioRecording, metadata);
       audioUrl = await getDownloadURL(audioRef);
     }
 
@@ -108,7 +203,7 @@ const CreateEntry = () => {
         tags: tags.split(',').map(tag => tag.trim()), // Split tags by comma and trim whitespace
         createdAt: new Date(), // Add a timestamp
         audioUrl, // Store the audio URL
-        imageUrl, // Store the image URL
+        imageUrls, // Store the image URLs
         userId: user.uid, // Store the user ID
       });
       console.log('Document written with ID:', docRef.id);
@@ -117,7 +212,7 @@ const CreateEntry = () => {
       setSubject('');
       setEntryText('');
       setTags('');
-      setImage(null);
+      setImages([]);
       setAudioRecording(null);
       setRecordingComplete(false);
       alert('Entry submitted successfully!');
@@ -163,24 +258,27 @@ const CreateEntry = () => {
             />
           </div>
           <div>
-            <label htmlFor="image">Attach an image:</label>
+            <label htmlFor="image">Attach images:</label>
             <input
               id="image"
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageChange}
             />
           </div>
+          <DndProvider backend={HTML5Backend}>
+            <div className="image-preview">
+              {images.map((image, index) => (
+                <ImageItem key={index} index={index} image={image} moveImage={moveImage} />
+              ))}
+            </div>
+          </DndProvider>
           <div>
-            <button type="button" onClick={startRecording} disabled={isRecording}>
-              Start Recording
+            <button type="button" onClick={startRecording}>
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
             </button>
-            <button type="button" onClick={stopRecording} disabled={!isRecording}>
-              Stop Recording
-            </button>
-            <button type="button" onClick={playRecording} disabled={!recordingComplete}>
-              Play Recording
-            </button>
+            {isRecording && <div className="blinking-dot"></div>}
           </div>
           {audioRecording && (
             <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase-config';
@@ -7,6 +7,52 @@ import Layout from '../components/Layout';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
+const ItemType = {
+  IMAGE: 'image',
+};
+
+const ImageItem = ({ image, index, moveImage, deleteImage }) => {
+  const ref = useRef(null);
+  const [, drop] = useDrop({
+    accept: ItemType.IMAGE,
+    hover(item) {
+      if (item.index !== index) {
+        moveImage(item.index, index);
+        item.index = index;
+      }
+    },
+  });
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemType.IMAGE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <div ref={ref} style={{ opacity: isDragging ? 0.5 : 1, position: 'relative' }}>
+      <img
+        className="entry-image"
+        src={URL.createObjectURL(image)}
+        alt="Attached"
+        onClick={() => window.open(URL.createObjectURL(image), '_blank')}
+      />
+      <button
+        style={{ position: 'absolute', top: 0, right: 0 }}
+        onClick={() => deleteImage(index)}
+      >
+        Delete
+      </button>
+    </div>
+  );
+};
 
 const EditEntry = () => {
   const { id } = useParams();
@@ -14,8 +60,9 @@ const EditEntry = () => {
   const [subject, setSubject] = useState('');
   const [entryText, setEntryText] = useState('');
   const [tags, setTags] = useState('');
-  const [image, setImage] = useState(null);
-  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const [images, setImages] = useState([]);
+  const [existingImageUrls, setExistingImageUrls] = useState([]);
+  const [existingAudioUrl, setExistingAudioUrl] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,7 +74,8 @@ const EditEntry = () => {
         setSubject(docSnap.data().subject || '');
         setEntryText(docSnap.data().text);
         setTags(docSnap.data().tags.join(', ')); // Join tags array into a comma-separated string
-        setExistingImageUrl(docSnap.data().imageUrl || '');
+        setExistingImageUrls(docSnap.data().imageUrls || []);
+        setExistingAudioUrl(docSnap.data().audioUrl || '');
       } else {
         navigate('/home');
       }
@@ -49,9 +97,25 @@ const EditEntry = () => {
   };
 
   const handleImageChange = (event) => {
-    if (event.target.files[0]) {
-      setImage(event.target.files[0]);
+    if (event.target.files) {
+      setImages([...images, ...Array.from(event.target.files)]);
     }
+  };
+
+  const moveImage = useCallback((dragIndex, hoverIndex) => {
+    const dragImage = images[dragIndex];
+    const updatedImages = [...images];
+    updatedImages.splice(dragIndex, 1);
+    updatedImages.splice(hoverIndex, 0, dragImage);
+    setImages(updatedImages);
+  }, [images]);
+
+  const deleteImage = (index) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
+  const deleteExistingImage = (index) => {
+    setExistingImageUrls(existingImageUrls.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (event) => {
@@ -62,11 +126,12 @@ const EditEntry = () => {
       return;
     }
 
-    let imageUrl = existingImageUrl;
-    if (image) {
+    const imageUrls = [...existingImageUrls];
+    for (const image of images) {
       const imageRef = ref(storage, `images/${image.name}`);
       await uploadBytes(imageRef, image);
-      imageUrl = await getDownloadURL(imageRef);
+      const imageUrl = await getDownloadURL(imageRef);
+      imageUrls.push(imageUrl);
     }
 
     try {
@@ -75,7 +140,7 @@ const EditEntry = () => {
         subject,
         text: entryText,
         tags: tags.split(',').map(tag => tag.trim()), // Split tags by comma and trim whitespace
-        imageUrl, // Store the image URL
+        imageUrls, // Store the image URLs
         updatedAt: new Date(),
       });
       alert('Entry updated successfully!');
@@ -121,17 +186,47 @@ const EditEntry = () => {
             />
           </div>
           <div>
-            <label htmlFor="image">Attach an image:</label>
+            <label htmlFor="image">Attach images:</label>
             <input
               id="image"
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageChange}
             />
           </div>
-          {existingImageUrl && (
+          <DndProvider backend={HTML5Backend}>
+            <div className="image-preview">
+              {existingImageUrls.map((imageUrl, index) => (
+                <div key={index} style={{ position: 'relative' }}>
+                  <img
+                    className="entry-image"
+                    src={imageUrl}
+                    alt={`Attached ${index}`}
+                    onClick={() => window.open(imageUrl, '_blank')}
+                  />
+                  <button
+                    style={{ position: 'absolute', top: 0, right: 0 }}
+                    onClick={() => deleteExistingImage(index)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+              {images.map((image, index) => (
+                <ImageItem
+                  key={index}
+                  index={index}
+                  image={image}
+                  moveImage={moveImage}
+                  deleteImage={deleteImage}
+                />
+              ))}
+            </div>
+          </DndProvider>
+          {existingAudioUrl && (
             <div>
-              <img src={existingImageUrl} alt="Attached" style={{ maxWidth: '100%' }} />
+              <audio controls src={existingAudioUrl} />
             </div>
           )}
           <div>
