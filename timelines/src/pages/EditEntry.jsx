@@ -5,54 +5,7 @@ import { db, storage } from '../firebase-config';
 import { AuthContext } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-
-const ItemType = {
-  IMAGE: 'image',
-};
-
-const ImageItem = ({ image, index, moveImage, deleteImage }) => {
-  const ref = useRef(null);
-  const [, drop] = useDrop({
-    accept: ItemType.IMAGE,
-    hover(item) {
-      if (item.index !== index) {
-        moveImage(item.index, index);
-        item.index = index;
-      }
-    },
-  });
-
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemType.IMAGE,
-    item: { index },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  drag(drop(ref));
-
-  return (
-    <div ref={ref} style={{ opacity: isDragging ? 0.5 : 1, position: 'relative' }}>
-      <img
-        className="entry-image"
-        src={URL.createObjectURL(image)}
-        alt="Attached"
-        onClick={() => window.open(URL.createObjectURL(image), '_blank')}
-      />
-      <button
-        style={{ position: 'absolute', top: 0, right: 0 }}
-        onClick={() => deleteImage(index)}
-      >
-        Delete
-      </button>
-    </div>
-  );
-};
+import EntryForm from '../components/EntryForm';
 
 const EditEntry = () => {
   const { id } = useParams();
@@ -83,24 +36,6 @@ const EditEntry = () => {
 
     fetchEntry();
   }, [id, user, navigate]);
-
-  const handleSubjectChange = (event) => {
-    setSubject(event.target.value);
-  };
-
-  const handleTextChange = (value) => {
-    setEntryText(value);
-  };
-
-  const handleTagsChange = (event) => {
-    setTags(event.target.value);
-  };
-
-  const handleImageChange = (event) => {
-    if (event.target.files) {
-      setImages([...images, ...Array.from(event.target.files)]);
-    }
-  };
 
   const moveImage = useCallback((dragIndex, hoverIndex) => {
     const dragImage = images[dragIndex];
@@ -155,84 +90,27 @@ const EditEntry = () => {
     <Layout>
       <div>
         <h1>Edit Journal Entry</h1>
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="subject">Subject:</label>
-            <input
-              id="subject"
-              type="text"
-              value={subject}
-              onChange={handleSubjectChange}
-              placeholder="e.g. First Date, College Graduation"
-            />
-          </div>
-          <div>
-            <label htmlFor="entryText">Edit your entry:</label>
-            <ReactQuill
-              value={entryText}
-              onChange={handleTextChange}
-              placeholder="Edit your journal entry here..."
-              theme="snow"
-            />
-          </div>
-          <div>
-            <label htmlFor="tags">Tags (comma separated):</label>
-            <input
-              id="tags"
-              type="text"
-              value={tags}
-              onChange={handleTagsChange}
-              placeholder="e.g. travel, memories, family"
-            />
-          </div>
-          <div>
-            <label htmlFor="image">Attach images:</label>
-            <input
-              id="image"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-            />
-          </div>
-          <DndProvider backend={HTML5Backend}>
-            <div className="image-preview">
-              {existingImageUrls.map((imageUrl, index) => (
-                <div key={index} style={{ position: 'relative' }}>
-                  <img
-                    className="entry-image"
-                    src={imageUrl}
-                    alt={`Attached ${index}`}
-                    onClick={() => window.open(imageUrl, '_blank')}
-                  />
-                  <button
-                    style={{ position: 'absolute', top: 0, right: 0 }}
-                    onClick={() => deleteExistingImage(index)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
-              {images.map((image, index) => (
-                <ImageItem
-                  key={index}
-                  index={index}
-                  image={image}
-                  moveImage={moveImage}
-                  deleteImage={deleteImage}
-                />
-              ))}
-            </div>
-          </DndProvider>
-          {existingAudioUrl && (
-            <div>
-              <audio controls src={existingAudioUrl} />
-            </div>
-          )}
-          <div>
-            <button type="submit">Update Entry</button>
-          </div>
-        </form>
+        <EntryForm
+          subject={subject}
+          setSubject={setSubject}
+          entryText={entryText}
+          setEntryText={setEntryText}
+          tags={tags}
+          setTags={setTags}
+          images={images}
+          setImages={setImages}
+          existingImageUrls={existingImageUrls}
+          moveImage={moveImage}
+          deleteImage={deleteImage}
+          deleteExistingImage={deleteExistingImage}
+          audioRecording={null}
+          setAudioRecording={() => {}}
+          isRecording={false}
+          setIsRecording={() => {}}
+          setRecordingComplete={() => {}}
+          existingAudioUrl={existingAudioUrl}
+          handleSubmit={handleSubmit}
+        />
       </div>
     </Layout>
   );
