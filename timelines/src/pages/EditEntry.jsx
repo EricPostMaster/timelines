@@ -5,11 +5,12 @@ import { db, storage } from '../firebase-config';
 import { AuthContext } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import ReactQuill from 'react-quill';
+// import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import ImageItemEdit from '../components/ImageItem';
+// import { DndProvider } from 'react-dnd';
+// import { HTML5Backend } from 'react-dnd-html5-backend';
+// import ImageItemEdit from '../components/ImageItem';
+import { SubjectField, TextField, TagsField, ImageUploadField, ImagePreview, AudioPreview } from '../components/FormFieldEdit'
 
 const EditEntry = () => {
   const { id } = useParams();
@@ -113,79 +114,18 @@ const EditEntry = () => {
       <div>
         <h1>Edit Journal Entry</h1>
         <form onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="subject">Subject:</label>
-            <input
-              id="subject"
-              type="text"
-              value={subject}
-              onChange={handleSubjectChange}
-              placeholder="e.g. First Date, College Graduation"
-            />
-          </div>
-          <div>
-            <label htmlFor="entryText">Edit your entry:</label>
-            <ReactQuill
-              value={entryText}
-              onChange={handleTextChange}
-              placeholder="Edit your journal entry here..."
-              theme="snow"
-            />
-          </div>
-          <div>
-            <label htmlFor="tags">Tags (comma separated):</label>
-            <input
-              id="tags"
-              type="text"
-              value={tags}
-              onChange={handleTagsChange}
-              placeholder="e.g. travel, memories, family"
-            />
-          </div>
-          <div>
-            <label htmlFor="image">Attach images:</label>
-            <input
-              id="image"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-            />
-          </div>
-          <DndProvider backend={HTML5Backend}>
-            <div className="image-preview">
-              {existingImageUrls.map((imageUrl, index) => (
-                <div key={index} style={{ position: 'relative' }}>
-                  <img
-                    className="entry-image"
-                    src={imageUrl}
-                    alt={`Attached ${index}`}
-                    onClick={() => window.open(imageUrl, '_blank')}
-                  />
-                  <button
-                    style={{ position: 'absolute', top: 0, right: 0 }}
-                    onClick={() => deleteExistingImage(index)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
-              {images.map((image, index) => (
-                <ImageItemEdit
-                  key={index}
-                  index={index}
-                  image={image}
-                  moveImage={moveImage}
-                  deleteImage={deleteImage}
-                />
-              ))}
-            </div>
-          </DndProvider>
-          {existingAudioUrl && (
-            <div>
-              <audio controls src={existingAudioUrl} />
-            </div>
-          )}
+          <SubjectField subject={subject} setSubject={setSubject} />
+          <TextField entryText={entryText} setEntryText={setEntryText} />
+          <TagsField tags={tags} setTags={setTags} />
+          <ImageUploadField handleImageChange={handleImageChange} />
+          <ImagePreview
+            existingImageUrls={existingImageUrls}
+            images={images}
+            moveImage={moveImage}
+            deleteImage={deleteImage}
+            deleteExistingImage={deleteExistingImage}
+          />
+          <AudioPreview existingAudioUrl={existingAudioUrl} />
           <div>
             <button type="submit">Update Entry</button>
           </div>
