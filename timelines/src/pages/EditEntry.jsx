@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase-config';
@@ -7,52 +7,9 @@ import Layout from '../components/Layout';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
-const ItemType = {
-  IMAGE: 'image',
-};
-
-const ImageItem = ({ image, index, moveImage, deleteImage }) => {
-  const ref = useRef(null);
-  const [, drop] = useDrop({
-    accept: ItemType.IMAGE,
-    hover(item) {
-      if (item.index !== index) {
-        moveImage(item.index, index);
-        item.index = index;
-      }
-    },
-  });
-
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemType.IMAGE,
-    item: { index },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  drag(drop(ref));
-
-  return (
-    <div ref={ref} style={{ opacity: isDragging ? 0.5 : 1, position: 'relative' }}>
-      <img
-        className="entry-image"
-        src={URL.createObjectURL(image)}
-        alt="Attached"
-        onClick={() => window.open(URL.createObjectURL(image), '_blank')}
-      />
-      <button
-        style={{ position: 'absolute', top: 0, right: 0 }}
-        onClick={() => deleteImage(index)}
-      >
-        Delete
-      </button>
-    </div>
-  );
-};
+import ImageItemEdit from '../components/ImageItem';
 
 const EditEntry = () => {
   const { id } = useParams();
@@ -214,7 +171,7 @@ const EditEntry = () => {
                 </div>
               ))}
               {images.map((image, index) => (
-                <ImageItem
+                <ImageItemEdit
                   key={index}
                   index={index}
                   image={image}

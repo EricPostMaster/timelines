@@ -8,41 +8,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '../CreateEntry.css'; // Import the CSS file
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
-const ItemType = {
-  IMAGE: 'image',
-};
-
-const ImageItem = ({ image, index, moveImage }) => {
-  const ref = useRef(null);
-  const [, drop] = useDrop({
-    accept: ItemType.IMAGE,
-    hover(item) {
-      if (item.index !== index) {
-        moveImage(item.index, index);
-        item.index = index;
-      }
-    },
-  });
-
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemType.IMAGE,
-    item: { index },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  drag(drop(ref));
-
-  return (
-    <div ref={ref} style={{ opacity: isDragging ? 0.5 : 1 }}>
-      <img className="entry-image" src={URL.createObjectURL(image)} alt="Attached" />
-    </div>
-  );
-};
+import { ImageItemCreate } from '../components/ImageItem';
 
 const CreateEntry = () => {
   const { user } = useContext(AuthContext);
@@ -270,7 +238,7 @@ const CreateEntry = () => {
           <DndProvider backend={HTML5Backend}>
             <div className="image-preview">
               {images.map((image, index) => (
-                <ImageItem key={index} index={index} image={image} moveImage={moveImage} />
+                <ImageItemCreate key={index} index={index} image={image} moveImage={moveImage} />
               ))}
             </div>
           </DndProvider>
@@ -295,4 +263,3 @@ const CreateEntry = () => {
 };
 
 export default CreateEntry;
-
